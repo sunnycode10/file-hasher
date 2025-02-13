@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload File</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f8f9fc;
+        }
+
+        .upload-card {
+            width: 350px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        p {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+
+        .upload-box {
+            width: 100%;
+            height: 150px;
+            border: 2px dashed #d1d1d1;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #f4f6f8;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .upload-box:hover {
+            border-color: #3498db;
+        }
+
+        .upload-box img {
+            width: 50px;
+            opacity: 0.6;
+        }
+
+        .upload-box span {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .spinner {
+            display: none;
+            margin: 10px auto;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="upload-card">
+        <h2>Upload your files</h2>
+        <p>Fast and easy way</p>
+        
+        <label class="upload-box" id="drop-area">
+            <img src="https://cdn-icons-png.flaticon.com/512/716/716784.png" alt="Upload Icon">
+            <span>Drag and drop files here</span>
+            <input type="file" id="file-input" name="file">
+        </label>
+
+        <button id="upload-btn">Submit</button>
+        <div class="spinner"></div>
+        
+        <div id="message-box" class="message"></div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            var fileInput = $("#file-input");
+            var uploadBox = $("#drop-area");
+            var messageBox = $("#message-box");
+            var spinner = $(".spinner");
+            var uploadButton = $("#upload-btn");
+            var uploadText = uploadBox.find("span"); // Get the text inside the upload box
+        
+            uploadBox.on("dragover", function(e) {
+                e.preventDefault();
+                uploadBox.css("border-color", "#3498db");
+            });
+        
+            uploadBox.on("dragleave", function() {
+                uploadBox.css("border-color", "#d1d1d1");
+            });
+        
+            uploadBox.on("drop", function(e) {
+                e.preventDefault();
+                var files = e.originalEvent.dataTransfer.files;
+                fileInput.prop("files", files);
+                uploadBox.css("border-color", "#d1d1d1");
+        
+                if (files.length > 0) {
+                    uploadText.text(files[0].name); // Show file name
+                }
+            });
+        
+            fileInput.on("change", function() {
+                if (fileInput[0].files.length > 0) {
+                    uploadText.text(fileInput[0].files[0].name); // Show file name when selected
+                }
+            });
+        
+            $("#upload-btn").on("click", function(event) {
+                event.preventDefault();
+        
+                var formData = new FormData();
+                var file = fileInput[0].files[0];
+        
+                if (!file) {
+                    messageBox.addClass("error").text("Please select a file to upload.").show();
+                    return;
+                }
+        
+                formData.append("file", file);
+                formData.append("csrfmiddlewaretoken", "{{ csrf_token }}");
+        
+                messageBox.hide().removeClass("success error");
+                spinner.show();
+                uploadButton.prop("disabled", true);
+        
+                setTimeout(function() {
+                    $.ajax({
+                        url: "{% url 'upload_file' %}",
+                        type: "POST",
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(response) {
+                            spinner.hide();
+                            uploadButton.prop("disabled", false);
+                            
+                            if (response.status === "success") {
+                                messageBox.addClass("success").text(response.message).show();
+                                uploadText.text("Uploaded: " + file.name); // Show uploaded file name
+                            } else {
+                                messageBox.addClass("error").text(response.message).show();
+                            }
+                        },
+                        error: function() {
+                            spinner.hide();
+                            uploadButton.prop("disabled", false);
+                            messageBox.addClass("error").text("Something went wrong. Please try again.").show();
+                        }
+                    });
+                }, 5000); // Spinner runs for 5 seconds before uploading
+            });
+        });
+        
+    </script>
+
+</body>
+</html>
